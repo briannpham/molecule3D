@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ to WebAssembly</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #output { border: 1px solid #ccc; padding: 10px; margin-top: 10px; min-height: 50px; background-color: #f9f9f9; }
+        #canvas { border: 1px solid black; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>C++ to WebAssembly Demo</h1>
+    <p>This page loads a WebAssembly module compiled from C++.</p>
+    <p>Output from C++:</p>
+    <pre id="output"></pre>
+
+    <h2>Canvas Drawing Area:</h2>
+    <canvas id="canvas" width="600" height="400"></canvas>
+
+    <h2>Load Molecule (XYZ Format)</h2>
+    <textarea id="xyzData" rows="10" cols="60" placeholder="Paste XYZ data here..."></textarea>
+    <br>
+    <button id="loadXYZButton">Load XYZ from Textarea</button>
+    <hr>
+
+    <script>
+        var Module = {
+            preRun: [],
+            postRun: [],
+            print: (function() {
+                var element = document.getElementById('output');
+                if (element) element.innerHTML = ''; // Clear browser cache
+                return function(text) {
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                    console.log(text);
+                    if (element) {
+                        element.innerHTML += text + "\n";
+                    }
+                };
+            })(),
+            printErr: function(text) {
+                if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                console.error(text);
+                if (document.getElementById('output')) {
+                    document.getElementById('output').innerHTML += "<span style=\'color: red;\'>" + text + "</span>\n";
+                }
+            },
+            canvas: (function() {
+                var canvas = document.getElementById('canvas');
+                // As a default initial behavior, pop up an alert when webgl context is lost. To make this behavior more gentle, override this function in a custom Module.onContextLost (see docs).
+                canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+                return canvas;
+            })(),
+            setStatus: function(text) {
+                console.log(text);
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: function(left) {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                this.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+            }
+        };
+        window.onerror = function(event) {
+            // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
+            Module.setStatus('Exception thrown, see JavaScript console');
+            Module.setStatus = function(text) {
+                if (text) console.error('[post-exception status] ' + text);
+            };
+        };
+
+        // Add event listener for the load button after Module is initialized
+        Module.onRuntimeInitialized = function() {
+            console.log("Emscripten runtime initialized.");
+            document.getElementById('loadXYZButton').addEventListener('click', function() {
+                const xyzText = document.getElementById('xyzData').value;
+                if (xyzText.trim() === "") {
+                    alert("Textarea is empty. Please paste XYZ data.");
+                    return;
+                }
+                try {
+                    // Ensure the C++ function is available via ccall or cwrap
+                    // The name for ccall is the C++ function name prefixed with an underscore if not in extern "C"
+                    // but since we used extern "C", it should be directly callable by its name.
+                    Module.ccall(
+                        'load_molecule_from_xyz_string', // C function name
+                        null,                      // Return type (null for void)
+                        ['string'],                // Argument types
+                        [xyzText]                  // Arguments
+                    );
+                    // The C++ function will print to console, and the render loop will pick up the new molecule
+                    console.log("JS: Called load_molecule_from_xyz_string.");
+                } catch (e) {
+                    console.error("JS: Error calling C++ function load_molecule_from_xyz_string:", e);
+                    alert("Error calling C++ function. See browser console.");
+                }
+            });
+        };
+
+    </script>
+    <script async src="main.js"></script>
+</body>
+</html> 
