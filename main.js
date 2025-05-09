@@ -5537,6 +5537,8 @@ async function createWasm() {
       GLctx.vertexAttribPointer(index, size, type, !!normalized, stride, ptr);
     };
 
+  var _glViewport = (x0, x1, x2, x3) => GLctx.viewport(x0, x1, x2, x3);
+
 
 
   var getCFunc = (ident) => {
@@ -6207,12 +6209,20 @@ var wasmImports = {
   /** @export */
   glUseProgram: _glUseProgram,
   /** @export */
-  glVertexAttribPointer: _glVertexAttribPointer
+  glVertexAttribPointer: _glVertexAttribPointer,
+  /** @export */
+  glViewport: _glViewport
 };
 var wasmExports;
 createWasm();
 var ___wasm_call_ctors = createExportWrapper('__wasm_call_ctors', 0);
+var _set_atom_display_scale = Module['_set_atom_display_scale'] = createExportWrapper('set_atom_display_scale', 1);
+var _set_bond_radius_value = Module['_set_bond_radius_value'] = createExportWrapper('set_bond_radius_value', 1);
 var _load_molecule_from_xyz_string = Module['_load_molecule_from_xyz_string'] = createExportWrapper('load_molecule_from_xyz_string', 1);
+var _set_representation = Module['_set_representation'] = createExportWrapper('set_representation', 1);
+var _update_projection_matrix_aspect = Module['_update_projection_matrix_aspect'] = createExportWrapper('update_projection_matrix_aspect', 2);
+var _get_current_molecule_name = Module['_get_current_molecule_name'] = createExportWrapper('get_current_molecule_name', 0);
+var _get_current_molecule_formula = Module['_get_current_molecule_formula'] = createExportWrapper('get_current_molecule_formula', 0);
 var _main = Module['_main'] = createExportWrapper('main', 2);
 var _fflush = createExportWrapper('fflush', 1);
 var _strerror = createExportWrapper('strerror', 1);

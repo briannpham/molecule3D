@@ -3,27 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C++ to WebAssembly</title>
+    <title>Molecular Viewer Pro</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        #output { border: 1px solid #ccc; padding: 10px; margin-top: 10px; min-height: 50px; background-color: #f9f9f9; }
-        #canvas { border: 1px solid black; margin-top: 10px; }
+        :root {
+            --bg-color: #2C2C2C;
+            --surface-color: #3A3A3A;
+            --primary-text-color: #E0E0E0;
+            --secondary-text-color: #A0A0A0;
+            --primary-accent-color: #0D99FF;
+            --primary-accent-hover-color: #007BE5;
+            --border-color: #4A4A4A;
+            --input-bg-color: #252525;
+            --canvas-bg-color: #1E1E1E; 
+            --danger-color: #FF4D4D;
+            --danger-hover-color: #E53E3E;
+
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-size-base: 14px;
+            --font-size-small: 12px;
+            --font-size-large: 18px;
+            --border-radius: 6px;
+            --padding-base: 10px;
+            --padding-large: 15px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            font-size: var(--font-size-base);
+            background-color: var(--bg-color);
+            color: var(--primary-text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden; /* Prevent body scrollbars */
+        }
+
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            width: 320px;
+            background-color: var(--surface-color);
+            padding: var(--padding-large);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; /* Allow sidebar to scroll if content overflows */
+            border-right: 1px solid var(--border-color);
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 0; /* Canvas will fill this */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--canvas-bg-color); /* Background for the canvas area */
+        }
+
+        #canvas {
+            border: none; /* Remove previous border */
+            /* Width and height are set by JS/WASM, ensure it fits if main-content has padding */
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .sidebar h1, .sidebar h2 {
+            color: var(--primary-text-color);
+            margin-bottom: var(--padding-base);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: var(--padding-base);
+        }
+        .sidebar h1 { font-size: var(--font-size-large); }
+        .sidebar h2 { font-size: 1.1em; margin-top: var(--padding-large); }
+
+        .control-group {
+            margin-bottom: var(--padding-large);
+        }
+
+        .control-group label {
+            display: block;
+            font-size: var(--font-size-small);
+            color: var(--secondary-text-color);
+            margin-bottom: 5px;
+        }
+
+        .control-group textarea,
+        .control-group input[type="text"], /* If we add text inputs */
+        .control-group select /* If we add selects */
+        {
+            width: 100%;
+            background-color: var(--input-bg-color);
+            color: var(--primary-text-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: var(--padding-base);
+            font-family: monospace;
+            font-size: var(--font-size-small);
+        }
+        .control-group textarea { min-height: 100px; }
+
+        .control-group button,
+        .control-group input[type="file"]::file-selector-button {
+            background-color: var(--primary-accent-color);
+            color: white;
+            border: none;
+            padding: var(--padding-base) var(--padding-large);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: var(--font-size-base);
+            transition: background-color 0.2s ease;
+            width: 100%;
+            margin-top: 5px;
+        }
+
+        .control-group button:hover,
+        .control-group input[type="file"]::file-selector-button:hover {
+            background-color: var(--primary-accent-hover-color);
+        }
+        
+        /* Styling for the actual file input to make it look like a button */
+        .control-group input[type="file"] {
+            color: transparent; /* Hide default text */
+        }
+        .control-group input[type="file"]::-webkit-file-upload-button {
+             visibility: hidden; /* Hide default button in chrome/safari */
+        }
+         .control-group input[type="file"]::before {
+            content: 'Load from .xyz File'; /* Custom button text */
+            display: inline-block;
+            background-color: var(--primary-accent-color);
+            color: white;
+            border: none;
+            padding: var(--padding-base) var(--padding-large);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: var(--font-size-base);
+            transition: background-color 0.2s ease;
+            text-align: center;
+            width: calc(100% - 30px); /* Adjust width as needed if padding makes it too wide */
+        }
+        .control-group input[type="file"]:hover::before {
+            background-color: var(--primary-accent-hover-color);
+        }
+
+
+        #output {
+            background-color: var(--input-bg-color);
+            color: var(--secondary-text-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: var(--padding-base);
+            font-size: var(--font-size-small);
+            min-height: 60px;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap; /* Allow wrapping */
+            word-break: break-all;
+        }
+
     </style>
 </head>
 <body>
-    <h1>C++ to WebAssembly Demo</h1>
-    <p>This page loads a WebAssembly module compiled from C++.</p>
-    <p>Output from C++:</p>
-    <pre id="output"></pre>
+    <div class="app-container">
+        <aside class="sidebar">
+            <h1>Molecular Viewer</h1>
+            
+            <div class="control-group" id="moleculeInfoGroup">
+                <h2>Molecule Information</h2>
+                <p style="font-size: var(--font-size-small); margin-bottom: 4px;">Name: <span id="moleculeNameDisplay" style="color: var(--primary-text-color);">N/A</span></p>
+                <p style="font-size: var(--font-size-small);">Formula: <span id="moleculeFormulaDisplay" style="color: var(--primary-text-color);">N/A</span></p>
+            </div>
+            
+            <div class="control-group">
+                <h2>Load Molecule</h2>
+                <label for="xyzData">Paste XYZ data:</label>
+                <textarea id="xyzData" placeholder="Paste XYZ data here..."></textarea>
+                <button id="loadXYZButton">Load from Textarea</button>
+            </div>
 
-    <h2>Canvas Drawing Area:</h2>
-    <canvas id="canvas" width="600" height="400"></canvas>
+            <div class="control-group">
+                <label for="xyzFilePicker">Or load from .xyz file:</label>
+                <input type="file" id="xyzFilePicker" accept=".xyz">
+            </div>
 
-    <h2>Load Molecule (XYZ Format)</h2>
-    <textarea id="xyzData" rows="10" cols="60" placeholder="Paste XYZ data here..."></textarea>
-    <br>
-    <button id="loadXYZButton">Load XYZ from Textarea</button>
-    <hr>
+            <div class="control-group">
+                <h2>Display Style</h2>
+                <label for="representationSelect">Representation:</label>
+                <select id="representationSelect">
+                    <option value="0" selected>Ball and Stick</option>
+                    <option value="1">Space Fill</option>
+                    <option value="2">Licorice</option> 
+                </select>
+            </div>
+
+            <div class="control-group">
+                <h2>Appearance Controls</h2>
+                <div>
+                    <label for="atomScaleSlider">Atom Size Scale: <span id="atomScaleValue">0.65</span></label>
+                    <input type="range" id="atomScaleSlider" min="0.1" max="3.0" value="0.65" step="0.05" style="width: 100%;">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label for="bondRadiusSlider">Bond Radius: <span id="bondRadiusValue">0.10</span></label>
+                    <input type="range" id="bondRadiusSlider" min="0.01" max="0.5" value="0.10" step="0.01" style="width: 100%;">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h2>Console Output</h2>
+                <pre id="output"></pre>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <canvas id="canvas" width="800" height="600"></canvas> <!-- Initial size, can be adjusted by JS -->
+        </main>
+    </div>
 
     <script>
         var Module = {
@@ -31,73 +233,226 @@
             postRun: [],
             print: (function() {
                 var element = document.getElementById('output');
-                if (element) element.innerHTML = ''; // Clear browser cache
+                if (element) element.innerHTML = ''; 
                 return function(text) {
                     if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
                     console.log(text);
                     if (element) {
                         element.innerHTML += text + "\n";
+                        element.scrollTop = element.scrollHeight; // Auto-scroll
                     }
                 };
             })(),
             printErr: function(text) {
                 if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
                 console.error(text);
-                if (document.getElementById('output')) {
-                    document.getElementById('output').innerHTML += "<span style=\'color: red;\'>" + text + "</span>\n";
+                var element = document.getElementById('output');
+                if (element) {
+                    element.innerHTML += "<span style='color: var(--danger-color);'>" + text + "</span>\n";
+                    element.scrollTop = element.scrollHeight; // Auto-scroll
                 }
             },
             canvas: (function() {
                 var canvas = document.getElementById('canvas');
-                // As a default initial behavior, pop up an alert when webgl context is lost. To make this behavior more gentle, override this function in a custom Module.onContextLost (see docs).
-                canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+                canvas.addEventListener("webglcontextlost", function(e) { 
+                    alert('WebGL context lost. You will need to reload the page.'); 
+                    e.preventDefault(); 
+                }, false);
                 return canvas;
             })(),
             setStatus: function(text) {
-                console.log(text);
+                if (text) Module.printErr("[STATUS] " + text);
             },
             totalDependencies: 0,
             monitorRunDependencies: function(left) {
                 this.totalDependencies = Math.max(this.totalDependencies, left);
-                this.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+                Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+            },
+            onRuntimeInitialized: function() {
+                console.log("Emscripten runtime initialized.");
+                Module.print("App initialized. Ready to load molecule.");
+
+                const moleculeNameSpan = document.getElementById('moleculeNameDisplay');
+                const moleculeFormulaSpan = document.getElementById('moleculeFormulaDisplay');
+
+                function updateMoleculeInfoDisplay() {
+                    if (!Module.ccall || !moleculeNameSpan || !moleculeFormulaSpan) {
+                        console.warn("Molecule info display elements or ccall not ready.");
+                        if(moleculeNameSpan) moleculeNameSpan.textContent = "Error";
+                        if(moleculeFormulaSpan) moleculeFormulaSpan.textContent = "Error";
+                        return;
+                    }
+                    try {
+                        const name = Module.ccall('get_current_molecule_name', 'string', [], []);
+                        const formula = Module.ccall('get_current_molecule_formula', 'string', [], []);
+                        moleculeNameSpan.textContent = name ? name : "N/A";
+                        moleculeFormulaSpan.textContent = formula ? formula : "N/A";
+                    } catch (e) {
+                        Module.printErr("Error fetching molecule info: " + e);
+                        moleculeNameSpan.textContent = "Error";
+                        moleculeFormulaSpan.textContent = "Error";
+                    }
+                }
+
+                // Initial update for sample molecule (if any is loaded by default)
+                updateMoleculeInfoDisplay(); 
+
+                // Setup representation select listener
+                const representationSelect = document.getElementById('representationSelect');
+                if (representationSelect) {
+                    representationSelect.addEventListener('change', function(event) {
+                        const repValue = parseInt(event.target.value);
+                        if (Module.ccall) { // Check if ccall is available
+                            try {
+                                Module.ccall('set_representation', // C function name
+                                             null,                 // Return type
+                                             ['number'],           // Argument types
+                                             [repValue]);          // Arguments
+                                Module.print(`Representation set to: ${event.target.options[event.target.selectedIndex].text}`);
+                            } catch (e) {
+                                Module.printErr("Error calling set_representation: " + e);
+                            }
+                        } else {
+                            Module.printErr("Module.ccall is not available. Ensure set_representation is exported.");
+                        }
+                    });
+                } else {
+                    Module.printErr("Could not find representationSelect element.");
+                }
+
+                // Setup Appearance Controls listeners
+                const atomScaleSlider = document.getElementById('atomScaleSlider');
+                const atomScaleValueSpan = document.getElementById('atomScaleValue');
+                const bondRadiusSlider = document.getElementById('bondRadiusSlider');
+                const bondRadiusValueSpan = document.getElementById('bondRadiusValue');
+
+                if (atomScaleSlider && atomScaleValueSpan) {
+                    atomScaleSlider.addEventListener('input', function(event) {
+                        const scale = parseFloat(event.target.value);
+                        atomScaleValueSpan.textContent = scale.toFixed(2);
+                        if (Module.ccall) {
+                            try {
+                                Module.ccall('set_atom_display_scale', null, ['number'], [scale]);
+                            } catch (e) { Module.printErr("Error calling set_atom_display_scale: " + e); }
+                        }
+                    });
+                } else {
+                    Module.printErr("Could not find atom scale slider elements.");
+                }
+
+                if (bondRadiusSlider && bondRadiusValueSpan) {
+                    bondRadiusSlider.addEventListener('input', function(event) {
+                        const radius = parseFloat(event.target.value);
+                        bondRadiusValueSpan.textContent = radius.toFixed(2);
+                        if (Module.ccall) {
+                            try {
+                                Module.ccall('set_bond_radius_value', null, ['number'], [radius]);
+                            } catch (e) { Module.printErr("Error calling set_bond_radius_value: " + e); }
+                        }
+                    });
+                } else {
+                    Module.printErr("Could not find bond radius slider elements.");
+                }
+
+                // Adjust canvas size to fit main content area
+                const mainContent = document.querySelector('.main-content');
+                const canvas = Module.canvas;
+                function resizeCanvas() {
+                    const dpr = window.devicePixelRatio || 1;
+                    const newCssWidth = mainContent.clientWidth;
+                    const newCssHeight = mainContent.clientHeight;
+
+                    const newBufferWidth = Math.round(newCssWidth * dpr);
+                    const newBufferHeight = Math.round(newCssHeight * dpr);
+
+                    canvas.width = newBufferWidth;
+                    canvas.height = newBufferHeight;
+                    canvas.style.width = newCssWidth + 'px';
+                    canvas.style.height = newCssHeight + 'px';
+                    
+                    // Enhanced logging
+                    console.log(`[resizeCanvas] Event. CSS Dimensions: ${newCssWidth}w x ${newCssHeight}h. DPR: ${dpr}.`);
+                    console.log(`[resizeCanvas] Calculated Buffer: ${newBufferWidth}w x ${newBufferHeight}h.`);
+                    console.log(`[resizeCanvas] Set canvas.width=${canvas.width}, canvas.height=${canvas.height}.`);
+                    console.log(`[resizeCanvas] Set canvas.style.width='${canvas.style.width}', canvas.style.height='${canvas.style.height}'.`);
+
+                    if (Module.ccall) {
+                        try {
+                           Module.ccall('update_projection_matrix_aspect', 
+                                        null, 
+                                        ['number', 'number'], 
+                                        [canvas.width, canvas.height]); // Pass the actual buffer width and height
+                            console.log(`[resizeCanvas] Called C++ update_projection_matrix_aspect(${canvas.width}, ${canvas.height}).`);
+                        } catch (e) {
+                            console.warn("[resizeCanvas] Error calling C++ update_projection_matrix_aspect:", e);
+                        }
+                    } else {
+                        console.warn("[resizeCanvas] Module.ccall not available or C++ function update_projection_matrix_aspect not ready.");
+                    }
+                }
+                
+                // Initial resize, delayed slightly to allow layout to stabilize
+                setTimeout(function() {
+                    console.log("[onRuntimeInitialized] Calling initial resizeCanvas after timeout.");
+                    resizeCanvas(); 
+                }, 100); 
+
+                window.addEventListener('resize', resizeCanvas); // Resize on window change
+
+                function call_cpp_load_molecule(xyzText) {
+                    if (xyzText.trim() === "") {
+                        Module.printErr("No XYZ data to load.");
+                        // Clear info if no data
+                        if(moleculeNameSpan) moleculeNameSpan.textContent = "N/A";
+                        if(moleculeFormulaSpan) moleculeFormulaSpan.textContent = "N/A";
+                        return;
+                    }
+                    try {
+                        Module.ccall(
+                            'load_molecule_from_xyz_string',
+                            null, 
+                            ['string'],
+                            [xyzText]
+                        );
+                        Module.print("JS: Called C++ to load molecule.");
+                        updateMoleculeInfoDisplay(); // Update info after loading
+                    } catch (e) {
+                        console.error("JS: Error calling C++ function:", e);
+                        Module.printErr("Error calling C++ load function. See console.");
+                        if(moleculeNameSpan) moleculeNameSpan.textContent = "Error loading name";
+                        if(moleculeFormulaSpan) moleculeFormulaSpan.textContent = "Error loading formula";
+                    }
+                }
+
+                document.getElementById('loadXYZButton').addEventListener('click', function() {
+                    const xyzText = document.getElementById('xyzData').value;
+                    call_cpp_load_molecule(xyzText);
+                });
+
+                document.getElementById('xyzFilePicker').addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const fileContent = e.target.result;
+                            document.getElementById('xyzData').value = fileContent; 
+                            call_cpp_load_molecule(fileContent);
+                        };
+                        reader.onerror = function(e) {
+                            console.error("File reading error:", e);
+                            Module.printErr("Error reading file.");
+                        };
+                        reader.readAsText(file);
+                    } else {
+                        Module.print("No file selected for upload.");
+                    }
+                });
             }
         };
-        window.onerror = function(event) {
-            // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
-            Module.setStatus('Exception thrown, see JavaScript console');
-            Module.setStatus = function(text) {
-                if (text) console.error('[post-exception status] ' + text);
-            };
+        window.onerror = function(message, source, lineno, colno, error) {
+            Module.printErr("JS Global Error: " + message + " at " + source + ":" + lineno);
+            return true; // Prevents the browser's default error handling
         };
-
-        // Add event listener for the load button after Module is initialized
-        Module.onRuntimeInitialized = function() {
-            console.log("Emscripten runtime initialized.");
-            document.getElementById('loadXYZButton').addEventListener('click', function() {
-                const xyzText = document.getElementById('xyzData').value;
-                if (xyzText.trim() === "") {
-                    alert("Textarea is empty. Please paste XYZ data.");
-                    return;
-                }
-                try {
-                    // Ensure the C++ function is available via ccall or cwrap
-                    // The name for ccall is the C++ function name prefixed with an underscore if not in extern "C"
-                    // but since we used extern "C", it should be directly callable by its name.
-                    Module.ccall(
-                        'load_molecule_from_xyz_string', // C function name
-                        null,                      // Return type (null for void)
-                        ['string'],                // Argument types
-                        [xyzText]                  // Arguments
-                    );
-                    // The C++ function will print to console, and the render loop will pick up the new molecule
-                    console.log("JS: Called load_molecule_from_xyz_string.");
-                } catch (e) {
-                    console.error("JS: Error calling C++ function load_molecule_from_xyz_string:", e);
-                    alert("Error calling C++ function. See browser console.");
-                }
-            });
-        };
-
     </script>
     <script async src="main.js"></script>
 </body>
