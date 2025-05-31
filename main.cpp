@@ -6,7 +6,8 @@
 #include <cmath> // For sin, cos, tan, sqrt, acos
 #include <algorithm> // for std::max
 #include <emscripten/html5.h>
-#include <emscripten.h>
+#include <emscripten/emscripten.h>
+#include <emscripten/val.h>
 #include <GLES3/gl3.h> // For WebGL 2.0 constants and functions
 #include <sstream> // For std::istringstream
 
@@ -389,18 +390,22 @@ float camera_angle_x = 0.0f;
 float camera_angle_y = 0.0f;
 float camera_distance = 5.0f; // Initial distance from origin
 
-bool mouse_is_down = false;
-double last_mouse_x = 0.0;
-double last_mouse_y = 0.0;
+// Auto-rotation state
+bool auto_rotate_enabled = false;
+bool manual_interaction_active = false;
+float auto_rotate_speed = 0.8f; // Radians per second
+double last_frame_time = 0.0;
 
-const float MOUSE_SENSITIVITY_ROTATE = 0.003f;
+bool mouse_dragging = false;
+int last_mouse_x = 0, last_mouse_y = 0;
+const float MOUSE_SENSITIVITY_ROTATE = 0.01f;
 const float MOUSE_SENSITIVITY_ZOOM_PIXEL_MODE = 0.005f;
 const float MIN_CAMERA_DISTANCE = 1.0f;
 const float MAX_CAMERA_DISTANCE = 20.0f;
 // --- End Camera and Mouse Interaction State ---
 
 Vec3 bond_color(0.6f, 0.6f, 0.6f); // Default grey for bonds
-float bond_radius = 0.10f;          // Default bond radius updated to 0.10f
+float bond_radius_scale = 0.10f;          // Default bond radius updated to 0.10f
 
 // Updated Vertex Shader
 const char* vertex_shader_source = R"glsl(#version 300 es
@@ -547,7 +552,7 @@ void setup_cylinder_geometry() {
 // --- Emscripten Event Callback Functions ---
 EM_BOOL mousedown_callback(int eventType, const EmscriptenMouseEvent *mouseEvent, void *userData) {
     if (mouseEvent->button == 0) { // Left mouse button
-        mouse_is_down = true;
+        mouse_dragging = true;
         last_mouse_x = mouseEvent->clientX;
         last_mouse_y = mouseEvent->clientY;
     }
@@ -556,13 +561,13 @@ EM_BOOL mousedown_callback(int eventType, const EmscriptenMouseEvent *mouseEvent
 
 EM_BOOL mouseup_callback(int eventType, const EmscriptenMouseEvent *mouseEvent, void *userData) {
     if (mouseEvent->button == 0) { // Left mouse button
-        mouse_is_down = false;
+        mouse_dragging = false;
     }
     return EM_TRUE; // Consume the event
 }
 
 EM_BOOL mousemove_callback(int eventType, const EmscriptenMouseEvent *mouseEvent, void *userData) {
-    if (mouse_is_down) {
+    if (mouse_dragging) {
         double dx = mouseEvent->clientX - last_mouse_x;
         double dy = mouseEvent->clientY - last_mouse_y;
 
@@ -638,6 +643,23 @@ void draw_one_cylinder_internal(const Mat4& model_matrix_bond) {
 
 void render_frame() {
     if (!gl_context || !shader_program) return;
+
+    // Get current time for auto-rotation
+    double current_time = emscripten_get_now() / 1000.0; // Convert to seconds
+    if (last_frame_time == 0.0) {
+        last_frame_time = current_time;
+    }
+    double delta_time = current_time - last_frame_time;
+    last_frame_time = current_time;
+
+    // Handle auto-rotation
+    if (auto_rotate_enabled && !mouse_dragging) {
+        camera_angle_y += auto_rotate_speed * delta_time;
+        // Keep angle in reasonable range
+        if (camera_angle_y > 2.0f * PI) {
+            camera_angle_y -= 2.0f * PI;
+        }
+    }
 
     glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -738,8 +760,8 @@ void render_frame() {
             Mat4 base_transform = translation_to_midpoint * rotation_to_align;
 
             if (bond.order == 2) { // Double bond
-                float double_cyl_eff_radius = bond_radius * DOUBLE_BOND_CYLINDER_RADIUS_SCALE;
-                float double_offset_dist = bond_radius * DOUBLE_BOND_OFFSET_FACTOR;
+                float double_cyl_eff_radius = bond_radius_scale * DOUBLE_BOND_CYLINDER_RADIUS_SCALE;
+                float double_offset_dist = bond_radius_scale * DOUBLE_BOND_OFFSET_FACTOR;
 
                 Mat4 scale_double = Mat4::scale(Vec3(double_cyl_eff_radius, cylinder_actual_length, double_cyl_eff_radius));
                 
@@ -752,8 +774,8 @@ void render_frame() {
                 draw_one_cylinder_internal(model_dbl2);
 
             } else if (bond.order == 3) { // Triple bond
-                float triple_cyl_eff_radius = bond_radius * TRIPLE_BOND_CYLINDER_RADIUS_SCALE;
-                float triple_offset_dist = bond_radius * TRIPLE_BOND_OFFSET_FACTOR;
+                float triple_cyl_eff_radius = bond_radius_scale * TRIPLE_BOND_CYLINDER_RADIUS_SCALE;
+                float triple_offset_dist = bond_radius_scale * TRIPLE_BOND_OFFSET_FACTOR;
 
                 Mat4 scale_triple = Mat4::scale(Vec3(triple_cyl_eff_radius, cylinder_actual_length, triple_cyl_eff_radius));
 
@@ -770,7 +792,7 @@ void render_frame() {
                 draw_one_cylinder_internal(model_tpl3);
 
             } else { // Single bond (or any other order defaults to single)
-                Mat4 scale_single = Mat4::scale(Vec3(bond_radius, cylinder_actual_length, bond_radius));
+                Mat4 scale_single = Mat4::scale(Vec3(bond_radius_scale, cylinder_actual_length, bond_radius_scale));
                 Mat4 model_single = base_transform * scale_single;
                 draw_one_cylinder_internal(model_single);
             }
@@ -820,12 +842,35 @@ void set_atom_display_scale(float scale) {
 
 EMSCRIPTEN_KEEPALIVE
 void set_bond_radius_value(float radius) {
-    if (radius > 0.0f && radius < 2.0f) { // Basic validation for radius
-        bond_radius = radius; // bond_radius is already global
-        std::cout << "C++: Bond radius set to " << bond_radius << std::endl;
+    if (radius > 0.0f) {
+        bond_radius_scale = radius;
+        std::cout << "C++: Bond radius scale set to " << bond_radius_scale << std::endl;
     } else {
         std::cerr << "C++: Invalid bond radius value: " << radius << std::endl;
     }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void set_zoom_level(float zoom) {
+    if (zoom > 0.0f) {
+        // Convert zoom level (1.0 = normal) to camera distance
+        // Zoom of 1.0 = distance 5.0, zoom of 0.1 = distance 20.0, zoom of 5.0 = distance 1.0
+        float base_distance = 5.0f;
+        camera_distance = base_distance / zoom;
+        
+        // Clamp to existing limits
+        camera_distance = std::max(MIN_CAMERA_DISTANCE, std::min(MAX_CAMERA_DISTANCE, camera_distance));
+        
+        std::cout << "C++: Zoom level set to " << zoom << " (camera distance: " << camera_distance << ")" << std::endl;
+    } else {
+        std::cerr << "C++: Invalid zoom level: " << zoom << std::endl;
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void set_auto_rotate(int enabled) {
+    auto_rotate_enabled = (enabled != 0);
+    std::cout << "C++: Auto-rotation " << (auto_rotate_enabled ? "enabled" : "disabled") << std::endl;
 }
 
 EMSCRIPTEN_KEEPALIVE
