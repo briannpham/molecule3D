@@ -10,6 +10,7 @@ A browser-based molecular visualization engine built with C++ and WebAssembly us
 - Multiple representation modes (Ball-and-Stick, Space-Fill, Licorice)
 - Real-time molecular formula calculation
 - Modern dark-themed UI
+- Modular JavaScript architecture for maintainability
 
 ## Prerequisites
 
@@ -85,9 +86,10 @@ cd path/to/molecular-visualization
 
 ### Compile to WebAssembly
 
-Compile the C++ code to WebAssembly and generate the `main.js` file:
+Navigate to the `src/` directory and compile the C++ code to WebAssembly:
 
 ```bash
+cd src
 emcc main.cpp -o main.js \
   -s USE_WEBGL2=1 \
   -s FULL_ES3=1 \
@@ -111,6 +113,7 @@ emcc main.cpp -o main.js \
 For development with debugging symbols and faster compilation:
 
 ```bash
+cd src
 emcc main.cpp -o main.js \
   -s USE_WEBGL2=1 \
   -s FULL_ES3=1 \
@@ -123,7 +126,7 @@ emcc main.cpp -o main.js \
 
 ## Running the Application
 
-After successful compilation, you'll have the following generated files:
+After successful compilation, you'll have the following generated files in the `src/` directory:
 - `main.js` - The compiled JavaScript/WebAssembly code
 - `main.wasm` - The WebAssembly binary
 
@@ -132,6 +135,7 @@ After successful compilation, you'll have the following generated files:
 Since the application uses WebAssembly, you need to serve it from a web server (not just open the HTML file directly). You can use Python's built-in server:
 
 ```bash
+# From the project root directory
 # Python 3
 python -m http.server 8000
 
@@ -143,6 +147,8 @@ Then open your browser and navigate to:
 ```
 http://localhost:8000
 ```
+
+The main application is now accessible directly from the root `index.html` file, which loads the modular components from the `src/` directory.
 
 ### Alternative Servers
 
@@ -176,14 +182,26 @@ php -S localhost:8000
 
 ```
 molecular-visualization/
-├── main.cpp          # Main C++ source code
-├── index.html        # Web interface
-├── main.js           # Generated JavaScript/WASM (excluded from git)
-├── main.wasm         # Generated WebAssembly binary (excluded from git)
-├── planning.md       # Development roadmap
-├── README.md         # This file
-├── .gitignore        # Git ignore rules
-└── emsdk/           # Emscripten SDK (if cloned locally)
+├── index.html           # Main application interface (loads modular components)
+├── src/                 # Source directory with modular components
+│   ├── main.cpp         # C++ source code
+│   ├── main.js          # Generated JavaScript/WASM (excluded from git)
+│   ├── main.wasm        # Generated WebAssembly binary (excluded from git)
+│   ├── css/
+│   │   └── styles.css   # Application styles
+│   ├── js/              # Modular JavaScript components
+│   │   ├── app.js       # Main application module
+│   │   ├── molecule-library.js
+│   │   ├── molecule-info.js
+│   │   ├── molecule-search.js
+│   │   ├── controls.js
+│   │   ├── canvas.js
+│   │   └── event-listeners.js
+│   └── README.md        # Detailed source documentation
+├── planning.md          # Development roadmap
+├── README.md            # This file
+├── .gitignore           # Git ignore rules
+└── emsdk/              # Emscripten SDK (if cloned locally)
 ```
 
 ## Development Notes
@@ -192,6 +210,15 @@ molecular-visualization/
 - Make sure to activate the Emscripten environment (`source ./emsdk_env.sh`) in each new terminal session before compiling
 - For production builds, use `-O2` or `-O3` optimization flags
 - The application requires WebGL 2.0 support in the browser
+
+## Architecture
+
+The application follows a modular architecture:
+
+- **C++ Backend** (`main.cpp`): Handles molecular data processing, 3D mathematics, and WebGL rendering
+- **JavaScript Frontend**: Modular components for UI, event handling, and application state
+- **CSS Styling**: Modern dark theme with CSS custom properties for easy theming
+- **HTML Structure**: Clean semantic markup with proper accessibility considerations
 
 ## Troubleshooting
 
