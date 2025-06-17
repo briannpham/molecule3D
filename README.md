@@ -9,14 +9,6 @@ A browser-based molecular visualization engine built with C++ and WebAssembly us
 - Interactive mouse controls (orbit, zoom)
 - Multiple representation modes (Ball-and-Stick, Space-Fill, Licorice)
 - Real-time molecular formula calculation
-- Modern dark-themed UI
-- Modular JavaScript architecture for maintainability
-
-## Prerequisites
-
-- Git
-- Python 3.6 or later
-- A modern web browser with WebGL support
 
 ## Installation
 
@@ -204,43 +196,11 @@ molecular-visualization/
 └── emsdk/              # Emscripten SDK (if cloned locally)
 ```
 
-## Development Notes
-
-- The `main.js` and `main.wasm` files are generated during compilation and should not be committed to version control
-- Make sure to activate the Emscripten environment (`source ./emsdk_env.sh`) in each new terminal session before compiling
-- For production builds, use `-O2` or `-O3` optimization flags
-- The application requires WebGL 2.0 support in the browser
-
 ## Architecture
 
 The application follows a modular architecture:
 
-- **C++ Backend** (`main.cpp`): Handles molecular data processing, 3D mathematics, and WebGL rendering
+- **C++ Backend**: Handles molecular data processing, 3D mathematics, and WebGL rendering
 - **JavaScript Frontend**: Modular components for UI, event handling, and application state
 - **CSS Styling**: Modern dark theme with CSS custom properties for easy theming
 - **HTML Structure**: Clean semantic markup with proper accessibility considerations
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"emcc: command not found"**
-   - Make sure you've activated the Emscripten environment: `source ./emsdk_env.sh`
-
-2. **WebAssembly compilation errors**
-   - Ensure you're using a recent version of Emscripten
-   - Check that all required flags are included in the compilation command
-
-3. **Browser compatibility issues**
-   - Ensure your browser supports WebGL 2.0
-   - Try using a different browser (Chrome, Firefox, Safari, Edge)
-
-4. **CORS errors when loading locally**
-   - Make sure you're serving the files through a web server, not opening the HTML file directly
-
-### Getting Help
-
-If you encounter issues:
-1. Check the browser's developer console for error messages
-2. Verify that all compilation steps completed successfully
-3. Ensure your browser supports WebGL 2.0
